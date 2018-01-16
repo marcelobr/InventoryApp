@@ -14,12 +14,17 @@
     <!-- Title for the activity to edit an existing product [CHAR LIMIT=20] -->
     <string name="editor_activity_title_edit_product">Edit Product</string>
 
-    <!-- Label for product name in the editor [CHAR LIMIT=30] -->
-    <string name="label_product_name">Name</string>
+    <!-- Label for product category of attributes in the editor [CHAR LIMIT=30] -->
+    <string name="category_product">Product</string>
 
-    <!-- Label for product price in the editor [CHAR LIMIT=30] -->
-    <string name="label_product_price">Price</string>
+    <!-- Label for supplier category of attributes in the editor [CHAR LIMIT=30] -->
+    <string name="category_supplier">Supplier</string>
 
     <!-- Text hint for product name field in the editor [CHAR LIMIT=30] -->
     <string name="hint_product_name">Name</string>
+
+    <!-- Text hint for product price field in the editor -->
+    <string name="hint_product_price">Price</string>
+
+
 </resources>
