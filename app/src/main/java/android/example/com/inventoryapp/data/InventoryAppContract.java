@@ -76,7 +76,7 @@ public class InventoryAppContract {
          *
          * Type: BLOB
          */
-        public final static String COLUMN_PRODUCT_PHOTO ="photo";
+        public final static String COLUMN_PRODUCT_IMAGE ="image";
     }
 
 

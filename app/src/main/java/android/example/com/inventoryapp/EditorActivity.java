@@ -1,29 +1,89 @@
 package android.example.com.inventoryapp;
 
+import android.Manifest;
+import android.app.AlertDialog;
 import android.app.LoaderManager;
+import android.content.ContentValues;
+import android.content.CursorLoader;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.Loader;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
 import android.net.Uri;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.support.annotation.NonNull;
+import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
+import android.widget.Toast;
+
+import android.example.com.inventoryapp.data.InventoryAppContract.ProductEntry;
+
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class EditorActivity extends AppCompatActivity implements LoaderManager.LoaderCallbacks<Cursor> {
 
-    /** Identifier for the product data loader */
+    /**
+     * Identifier for the product data loader
+     */
     private static final int EXISTING_PRODUCT_LOADER = 0;
 
-    /** Content URI for the existing product (null if it's a new product) */
+    private final int PICK_IMAGE_CAMERA = 1, PICK_IMAGE_GALLERY = 2;
+
+    private static final int MY_CAMERA_REQUEST_CODE = 100;
+
+    /**
+     * Content URI for the existing product (null if it's a new product)
+     */
     private Uri mCurrentProductUri;
 
-    /** EditText field to enter the product's name */
-    private EditText mNameEditText;
+    /**
+     * EditText field to enter the product's name
+     */
+    private EditText mProductName;
 
-    /** Boolean flag that keeps track of whether the product has been edited (true) or not (false) */
+    private EditText mProductPrice;
+
+    private EditText mProductQuantity;
+
+    private ImageView mProductImage;
+
+    private EditText mSupplierName;
+
+    /**
+     * Boolean flag that keeps track of whether the product has been edited (true) or not (false)
+     */
     private boolean mProductHasChanged = false;
+
+
+    private Bitmap bitmap;
+    private File destination = null;
+    private InputStream inputStreamImg;
+    private String imgPath = null;;
+
 
     /**
      * OnTouchListener that listens for any user touches on a View, implying that they are modifying
@@ -62,25 +122,477 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         }
 
         // Find all relevant views that we will need to read user input from
-//        mNameEditText = (EditText) findViewById(R.id.edit_pet_name);
-//        mBreedEditText = (EditText) findViewById(R.id.edit_pet_breed);
-//        mWeightEditText = (EditText) findViewById(R.id.edit_pet_weight);
-//        mGenderSpinner = (Spinner) findViewById(R.id.spinner_gender);
+        mProductName = (EditText) findViewById(R.id.edit_product_name);
+        mProductPrice = (EditText) findViewById(R.id.edit_product_price);
+        mProductQuantity = (EditText) findViewById(R.id.edit_product_quantity);
+        mProductImage = (ImageView) findViewById(R.id.iv_product_image);
+        mSupplierName = (EditText) findViewById(R.id.edit_supplier_name);
 
+        Button btnSelectImage = (Button) findViewById(R.id.ib_product_select);
+
+        btnSelectImage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                selectImage();
+            }
+        });
+
+        Button btnMinus = (Button) findViewById(R.id.btn_product_minus);
+        Button btnPlus = (Button) findViewById(R.id.btn_product_plus);
+        mProductQuantity.setText("0");
+
+        btnMinus.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int value = Integer.parseInt(mProductQuantity.getText().toString());
+                if (value >= 1)
+                    mProductQuantity.setText(String.valueOf(value-1));
+            }
+        });
+
+        btnPlus.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                int value = Integer.parseInt(mProductQuantity.getText().toString());
+                mProductQuantity.setText(String.valueOf(value+1));
+            }
+        });
+
+        // Setup OnTouchListeners on all the input fields, so we can determine if the user
+        // has touched or modified them. This will let us know if there are unsaved changes
+        // or not, if the user tries to leave the editor without saving.
+        mProductName.setOnTouchListener(mTouchListener);
+        mProductPrice.setOnTouchListener(mTouchListener);
+        mProductQuantity.setOnTouchListener(mTouchListener);
+        mProductImage.setOnTouchListener(mTouchListener);
+        mSupplierName.setOnTouchListener(mTouchListener);
+    }
+
+    /**
+     * This method is called after invalidateOptionsMenu(), so that the
+     * menu can be updated (some menu items can be hidden or made visible).
+     */
+    @Override
+    public boolean onPrepareOptionsMenu(Menu menu) {
+        super.onPrepareOptionsMenu(menu);
+        // If this is a new product, hide the "Delete" menu item.
+        if (mCurrentProductUri == null) {
+            MenuItem menuItem = menu.findItem(R.id.action_delete);
+            menuItem.setVisible(false);
+        }
+        return true;
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu options from the res/menu/menu_editor.xml file.
+        // This adds menu items to the app bar.
+        getMenuInflater().inflate(R.menu.menu_editor, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // User clicked on a menu option in the app bar overflow menu
+        switch (item.getItemId()) {
+            // Respond to a click on the "Save" menu option
+            case R.id.action_save:
+                // Save product to database
+                saveProduct();
+                // Exit activity
+                finish();
+                return true;
+            // Respond to a click on the "Delete" menu option
+            case R.id.action_delete:
+                // Pop up confirmation dialog for deletion
+                showDeleteConfirmationDialog();
+                return true;
+            // Respond to a click on the "Up" arrow button in the app bar
+            case android.R.id.home:
+                // If the product hasn't changed, continue with navigating up to parent activity
+                // which is the {@link MainActivity}.
+                if (!mProductHasChanged) {
+                    NavUtils.navigateUpFromSameTask(EditorActivity.this);
+                    return true;
+                }
+
+                // Otherwise if there are unsaved changes, setup a dialog to warn the user.
+                // Create a click listener to handle the user confirming that
+                // changes should be discarded.
+                DialogInterface.OnClickListener discardButtonClickListener =
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialogInterface, int i) {
+                                // User clicked "Discard" button, navigate to parent activity.
+                                NavUtils.navigateUpFromSameTask(EditorActivity.this);
+                            }
+                        };
+
+                // Show a dialog that notifies the user they have unsaved changes
+                showUnsavedChangesDialog(discardButtonClickListener);
+                return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    /**
+     * This method is called when the back button is pressed.
+     */
+    @Override
+    public void onBackPressed() {
+        // If the pet hasn't changed, continue with handling back button press
+        if (!mProductHasChanged) {
+            super.onBackPressed();
+            return;
+        }
+
+        // Otherwise if there are unsaved changes, setup a dialog to warn the user.
+        // Create a click listener to handle the user confirming that changes should be discarded.
+        DialogInterface.OnClickListener discardButtonClickListener =
+                new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        // User clicked "Discard" button, close the current activity.
+                        finish();
+                    }
+                };
+
+        // Show dialog that there are unsaved changes
+        showUnsavedChangesDialog(discardButtonClickListener);
+    }
+
+    // Select image from camera and gallery
+    private void selectImage() {
+        try {
+            PackageManager pm = getPackageManager();
+            int hasPerm = pm.checkPermission(Manifest.permission.CAMERA, getPackageName());
+            if (hasPerm == PackageManager.PERMISSION_GRANTED) {
+                final CharSequence[] options = {"Take Photo", "Choose From Gallery","Cancel"};
+                android.support.v7.app.AlertDialog.Builder builder = new android.support.v7.app.AlertDialog.Builder(this);
+                builder.setTitle("Select Option");
+                builder.setItems(options, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialog, int item) {
+                        if (options[item].equals("Take Photo")) {
+                            dialog.dismiss();
+                            Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                            startActivityForResult(intent, PICK_IMAGE_CAMERA);
+                        } else if (options[item].equals("Choose From Gallery")) {
+                            dialog.dismiss();
+                            Intent pickPhoto = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                            startActivityForResult(pickPhoto, PICK_IMAGE_GALLERY);
+                        } else if (options[item].equals("Cancel")) {
+                            dialog.dismiss();
+                        }
+                    }
+                });
+                builder.show();
+            } else
+                requestPermissions(new String[]{Manifest.permission.CAMERA},
+                        MY_CAMERA_REQUEST_CODE);
+                //Toast.makeText(this, "Camera Permission error", Toast.LENGTH_SHORT).show();
+        } catch (Exception e) {
+            Toast.makeText(this, "Camera Permission error", Toast.LENGTH_SHORT).show();
+            e.printStackTrace();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == MY_CAMERA_REQUEST_CODE) {
+            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(this, "camera permission granted", Toast.LENGTH_LONG).show();
+            } else {
+                Toast.makeText(this, "camera permission denied", Toast.LENGTH_LONG).show();
+            }
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        inputStreamImg = null;
+        if (requestCode == PICK_IMAGE_CAMERA) {
+            try {
+                Uri selectedImage = data.getData();
+                bitmap = (Bitmap) data.getExtras().get("data");
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 50, bytes);
+
+                Log.e("Activity", "Pick from Camera::>>> ");
+
+                String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+                destination = new File(Environment.getExternalStorageDirectory() + "/" +
+                        getString(R.string.app_name), "IMG_" + timeStamp + ".jpg");
+                FileOutputStream fo;
+                try {
+                    destination.createNewFile();
+                    fo = new FileOutputStream(destination);
+                    fo.write(bytes.toByteArray());
+                    fo.close();
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                imgPath = destination.getAbsolutePath();
+                mProductImage.setImageBitmap(bitmap);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } else if (requestCode == PICK_IMAGE_GALLERY) {
+            Uri selectedImage = data.getData();
+            try {
+                bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImage);
+                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 50, bytes);
+                Log.e("Activity", "Pick from Gallery::>>> ");
+
+                imgPath = getRealPathFromURI(selectedImage);
+                destination = new File(imgPath.toString());
+                mProductImage.setImageBitmap(bitmap);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    public String getRealPathFromURI(Uri contentUri) {
+        String[] proj = {MediaStore.Audio.Media.DATA};
+        Cursor cursor = managedQuery(contentUri, proj, null, null, null);
+        int column_index = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA);
+        cursor.moveToFirst();
+        return cursor.getString(column_index);
+    }
+
+    /**
+     * Get user input from editor and save product into database.
+     */
+    private void saveProduct() {
+        // Read from input fields
+        // Use trim to eliminate leading or trailing white space
+        String productNameString = mProductName.getText().toString().trim();
+        String productPriceString = mProductPrice.getText().toString().trim();
+        String productQuantityString = mProductQuantity.getText().toString().trim();
+        String supplierNameString = mSupplierName.getText().toString().trim();
+
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        //Bitmap bitmap = ((BitmapDrawable)getResources().getDrawable(R.drawable.common)).getBitmap();
+        Bitmap bitmap = ((BitmapDrawable)mProductImage.getDrawable()).getBitmap();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+        byte[] image = baos.toByteArray();
+
+        // Check if this is supposed to be a new product
+        // and check if all the fields in the editor are blank
+        if (mCurrentProductUri == null &&
+                TextUtils.isEmpty(productNameString) && TextUtils.isEmpty(productPriceString) &&
+                TextUtils.isEmpty(productQuantityString) && TextUtils.isEmpty(supplierNameString)) {
+            // Since no fields were modified, we can return early without creating a new product.
+            // No need to create ContentValues and no need to do any ContentProvider operations.
+            return;
+        }
+
+        // Create a ContentValues object where column names are the keys,
+        // and product attributes from the editor are the values.
+        ContentValues values = new ContentValues();
+        values.put(ProductEntry.COLUMN_PRODUCT_NAME, productNameString);
+        values.put(ProductEntry.COLUMN_PRODUCT_PRICE, productPriceString);
+        values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY, productQuantityString);
+        values.put(ProductEntry.COLUMN_PRODUCT_IMAGE, image);
+        values.put(ProductEntry.COLUMN_PRODUCT_SUPPLIER, supplierNameString);
+
+        // Determine if this is a new or existing product by checking if mCurrentProductUri is null or not
+        if (mCurrentProductUri == null) {
+            // This is a NEW product, so insert a new product into the provider,
+            // returning the content URI for the new product.
+            Uri newUri = getContentResolver().insert(ProductEntry.CONTENT_URI, values);
+
+            // Show a toast message depending on whether or not the insertion was successful.
+            if (newUri == null) {
+                // If the new content URI is null, then there was an error with insertion.
+                Toast.makeText(this, getString(R.string.editor_insert_product_failed),
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                // Otherwise, the insertion was successful and we can display a toast.
+                Toast.makeText(this, getString(R.string.editor_insert_product_successful),
+                        Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            // Otherwise this is an EXISTING product, so update the product with content URI: mCurrentProductUri
+            // and pass in the new ContentValues. Pass in null for the selection and selection args
+            // because mCurrentProductUri will already identify the correct row in the database that
+            // we want to modify.
+            int rowsAffected = getContentResolver().update(mCurrentProductUri, values, null, null);
+
+            // Show a toast message depending on whether or not the update was successful.
+            if (rowsAffected == 0) {
+                // If no rows were affected, then there was an error with the update.
+                Toast.makeText(this, getString(R.string.editor_update_product_failed),
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                // Otherwise, the update was successful and we can display a toast.
+                Toast.makeText(this, getString(R.string.editor_update_product_successful),
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
     }
 
     @Override
     public Loader<Cursor> onCreateLoader(int id, Bundle args) {
-        return null;
+        // Since the editor shows all products attributes, define a projection that contains
+        // all columns from the products table
+        String[] projection = {
+                ProductEntry._ID,
+                ProductEntry.COLUMN_PRODUCT_NAME,
+                ProductEntry.COLUMN_PRODUCT_PRICE,
+                ProductEntry.COLUMN_PRODUCT_QUANTITY,
+                ProductEntry.COLUMN_PRODUCT_IMAGE,
+                ProductEntry.COLUMN_PRODUCT_SUPPLIER};
+
+        // This loader will execute the ContentProvider's query method on a background thread
+        return new CursorLoader(this,   // Parent activity context
+                mCurrentProductUri,         // Query the content URI for the current pet
+                projection,             // Columns to include in the resulting Cursor
+                null,                   // No selection clause
+                null,                   // No selection arguments
+                null);                  // Default sort order
     }
 
     @Override
-    public void onLoadFinished(Loader<Cursor> loader, Cursor data) {
+    public void onLoadFinished(Loader<Cursor> loader, Cursor cursor) {
+        // Bail early if the cursor is null or there is less than 1 row in the cursor
+        if (cursor == null || cursor.getCount() < 1) {
+            return;
+        }
 
+        // Proceed with moving to the first row of the cursor and reading data from it
+        // (This should be the only row in the cursor)
+        if (cursor.moveToFirst()) {
+            // Find the columns of product attributes that we're interested in
+            int productNameColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_NAME);
+            int productPriceColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_PRICE);
+            int productQuantityColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_QUANTITY);
+            int productImageColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_IMAGE);
+            int productSupplierColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_SUPPLIER);
+
+            // Extract out the value from the Cursor for the given column index
+            String productName = cursor.getString(productNameColumnIndex);
+            int productPrice = cursor.getInt(productPriceColumnIndex);
+            int productQuantity = cursor.getInt(productQuantityColumnIndex);
+            byte[] productImage = cursor.getBlob(productImageColumnIndex);
+            String productSupplier = cursor.getString(productSupplierColumnIndex);
+
+            // Update the views on the screen with the values from the database
+            mProductName.setText(productName);
+            mProductPrice.setText(productPrice);
+            mProductQuantity.setText(productQuantity);
+
+            ByteArrayInputStream imageStream = new ByteArrayInputStream(productImage);
+            Bitmap image= BitmapFactory.decodeStream(imageStream);
+            mProductImage.setImageBitmap(image);
+            mSupplierName.setText(productSupplier);
+        }
     }
 
     @Override
     public void onLoaderReset(Loader<Cursor> loader) {
-
+        // If the loader is invalidated, clear out all the data from the input fields.
+        mProductName.setText("");
+        mProductPrice.setText("0");
+        mProductQuantity.setText("0");
+        mProductImage.setImageResource(R.drawable.placeholder_thumbnail);
+        mSupplierName.setText("");
     }
+
+    /**
+     * Show a dialog that warns the user there are unsaved changes that will be lost
+     * if they continue leaving the editor.
+     *
+     * @param discardButtonClickListener is the click listener for what to do when
+     *                                   the user confirms they want to discard their changes
+     */
+    private void showUnsavedChangesDialog(
+            DialogInterface.OnClickListener discardButtonClickListener) {
+        // Create an AlertDialog.Builder and set the message, and click listeners
+        // for the positive and negative buttons on the dialog.
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(R.string.unsaved_changes_dialog_msg);
+        builder.setPositiveButton(R.string.discard, discardButtonClickListener);
+        builder.setNegativeButton(R.string.keep_editing, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User clicked the "Keep editing" button, so dismiss the dialog
+                // and continue editing the pet.
+                if (dialog != null) {
+                    dialog.dismiss();
+                }
+            }
+        });
+
+        // Create and show the AlertDialog
+        AlertDialog alertDialog = builder.create();
+        alertDialog.show();
+    }
+
+    /**
+     * Prompt the user to confirm that they want to delete this product.
+     */
+    private void showDeleteConfirmationDialog() {
+        // Create an AlertDialog.Builder and set the message, and click listeners
+        // for the positive and negative buttons on the dialog.
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setMessage(R.string.delete_dialog_msg);
+        builder.setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User clicked the "Delete" button, so delete the pet.
+                deletePet();
+            }
+        });
+        builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
+            public void onClick(DialogInterface dialog, int id) {
+                // User clicked the "Cancel" button, so dismiss the dialog
+                // and continue editing the pet.
+                if (dialog != null) {
+                    dialog.dismiss();
+                }
+            }
+        });
+
+        // Create and show the AlertDialog
+        AlertDialog alertDialog = builder.create();
+        alertDialog.show();
+    }
+
+    /**
+     * Perform the deletion of the pet in the database.
+     */
+    private void deletePet() {
+        // Only perform the delete if this is an existing product.
+        if (mCurrentProductUri != null) {
+            // Call the ContentResolver to delete the product at the given content URI.
+            // Pass in null for the selection and selection args because the mCurrentProductUri
+            // content URI already identifies the product that we want.
+            int rowsDeleted = getContentResolver().delete(mCurrentProductUri, null, null);
+
+            // Show a toast message depending on whether or not the delete was successful.
+            if (rowsDeleted == 0) {
+                // If no rows were deleted, then there was an error with the delete.
+                Toast.makeText(this, getString(R.string.editor_delete_product_failed),
+                        Toast.LENGTH_SHORT).show();
+            } else {
+                // Otherwise, the delete was successful and we can display a toast.
+                Toast.makeText(this, getString(R.string.editor_delete_product_successful),
+                        Toast.LENGTH_SHORT).show();
+            }
+        }
+
+        // Close the activity
+        finish();
+    }
+
 }

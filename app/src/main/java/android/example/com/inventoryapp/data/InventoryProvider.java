@@ -128,6 +128,12 @@ public class InventoryProvider extends ContentProvider {
             throw new IllegalArgumentException("Product requires valid quantity");
         }
 
+        // Check that the image is not null
+        byte[] image = values.getAsByteArray(ProductEntry.COLUMN_PRODUCT_IMAGE);
+        if (image != null) {
+            throw new IllegalArgumentException("Product requires valid image");
+        }
+
         // Check that the supplier is not null
         String supplier = values.getAsString(ProductEntry.COLUMN_PRODUCT_SUPPLIER);
         if (supplier == null) {
@@ -236,6 +242,15 @@ public class InventoryProvider extends ContentProvider {
             Integer quantity = values.getAsInteger(ProductEntry.COLUMN_PRODUCT_QUANTITY);
             if (quantity == null && quantity < 0) {
                 throw new IllegalArgumentException("Pet requires valid quantity");
+            }
+        }
+
+        // If the {@link ProductEntry#COLUMN_PRODUCT_IMAGE} key is present,
+        // check that the image value is valid.
+        if (values.containsKey(ProductEntry.COLUMN_PRODUCT_IMAGE)) {
+            byte[] image = values.getAsByteArray(ProductEntry.COLUMN_PRODUCT_IMAGE);
+            if (image == null) {
+                throw new IllegalArgumentException("Pet requires valid image");
             }
         }
 
