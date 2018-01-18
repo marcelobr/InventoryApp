@@ -46,7 +46,6 @@ public class InventoryProvider extends ContentProvider {
         return true;
     }
 
-    @Nullable
     @Override
     public Cursor query(@NonNull Uri uri, @Nullable String[] projection, @Nullable String selection, @Nullable String[] selectionArgs, @Nullable String sortOrder) {
         // Get readable database
@@ -79,7 +78,6 @@ public class InventoryProvider extends ContentProvider {
         return cursor;
     }
 
-    @Nullable
     @Override
     public String getType(@NonNull Uri uri) {
         final int match = sUriMatcher.match(uri);
@@ -93,7 +91,6 @@ public class InventoryProvider extends ContentProvider {
         }
     }
 
-    @Nullable
     @Override
     public Uri insert(@NonNull Uri uri, @Nullable ContentValues contentValues) {
         final int match = sUriMatcher.match(uri);
@@ -117,20 +114,20 @@ public class InventoryProvider extends ContentProvider {
         }
 
         // If the price is provided, check that it's greater than or equal to 0
-        Integer price = values.getAsInteger(ProductEntry.COLUMN_PRODUCT_PRICE);
-        if (price != null && price < 0) {
+        Double price = values.getAsDouble(ProductEntry.COLUMN_PRODUCT_PRICE);
+        if (price == null || price < 0.0) {
             throw new IllegalArgumentException("Product requires valid price");
         }
 
         // If the quantity is provided, check that it's greater than or equal to 0
         Integer quantity = values.getAsInteger(ProductEntry.COLUMN_PRODUCT_QUANTITY);
-        if (quantity != null && quantity < 0) {
+        if (quantity == null || quantity < 0) {
             throw new IllegalArgumentException("Product requires valid quantity");
         }
 
         // Check that the image is not null
         byte[] image = values.getAsByteArray(ProductEntry.COLUMN_PRODUCT_IMAGE);
-        if (image != null) {
+        if (image == null) {
             throw new IllegalArgumentException("Product requires valid image");
         }
 
@@ -230,8 +227,8 @@ public class InventoryProvider extends ContentProvider {
         // If the {@link ProductEntry#COLUMN_PRODUCT_PRICE} key is present,
         // check that the price value is valid.
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_PRICE)) {
-            Integer price = values.getAsInteger(ProductEntry.COLUMN_PRODUCT_PRICE);
-            if (price == null && price < 0) {
+            Double price = values.getAsDouble(ProductEntry.COLUMN_PRODUCT_PRICE);
+            if (price == null || price < 0.0) {
                 throw new IllegalArgumentException("Pet requires valid price");
             }
         }
@@ -240,7 +237,7 @@ public class InventoryProvider extends ContentProvider {
         // check that the quantity value is valid.
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_QUANTITY)) {
             Integer quantity = values.getAsInteger(ProductEntry.COLUMN_PRODUCT_QUANTITY);
-            if (quantity == null && quantity < 0) {
+            if (quantity == null || quantity < 0) {
                 throw new IllegalArgumentException("Pet requires valid quantity");
             }
         }

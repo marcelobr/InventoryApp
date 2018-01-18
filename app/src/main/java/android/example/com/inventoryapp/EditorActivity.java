@@ -40,6 +40,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -140,6 +141,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         Button btnMinus = (Button) findViewById(R.id.btn_product_minus);
         Button btnPlus = (Button) findViewById(R.id.btn_product_plus);
         mProductQuantity.setText("0");
+        mProductPrice.setText("0.0");
 
         btnMinus.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -378,8 +380,23 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         // Read from input fields
         // Use trim to eliminate leading or trailing white space
         String productNameString = mProductName.getText().toString().trim();
-        String productPriceString = mProductPrice.getText().toString().trim();
-        String productQuantityString = mProductQuantity.getText().toString().trim();
+
+        Double productPriceDouble;
+        String priceString = mProductPrice.getText().toString().trim();
+        if (priceString.isEmpty()) {
+            productPriceDouble = 0.0;
+        } else {
+            productPriceDouble = Double.valueOf(priceString);
+        }
+
+        int productQuantityInt;
+        String quantityString = mProductQuantity.getText().toString().trim();
+        if (quantityString.isEmpty()) {
+            productQuantityInt = 0;
+        } else {
+            productQuantityInt = Integer.parseInt(quantityString);
+        }
+
         String supplierNameString = mSupplierName.getText().toString().trim();
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -391,8 +408,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         // Check if this is supposed to be a new product
         // and check if all the fields in the editor are blank
         if (mCurrentProductUri == null &&
-                TextUtils.isEmpty(productNameString) && TextUtils.isEmpty(productPriceString) &&
-                TextUtils.isEmpty(productQuantityString) && TextUtils.isEmpty(supplierNameString)) {
+                TextUtils.isEmpty(productNameString) && productPriceDouble == 0.0 &&
+                productQuantityInt == 0 && TextUtils.isEmpty(supplierNameString)) {
             // Since no fields were modified, we can return early without creating a new product.
             // No need to create ContentValues and no need to do any ContentProvider operations.
             return;
@@ -402,8 +419,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         // and product attributes from the editor are the values.
         ContentValues values = new ContentValues();
         values.put(ProductEntry.COLUMN_PRODUCT_NAME, productNameString);
-        values.put(ProductEntry.COLUMN_PRODUCT_PRICE, productPriceString);
-        values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY, productQuantityString);
+        values.put(ProductEntry.COLUMN_PRODUCT_PRICE, productPriceDouble);
+        values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY, productQuantityInt);
         values.put(ProductEntry.COLUMN_PRODUCT_IMAGE, image);
         values.put(ProductEntry.COLUMN_PRODUCT_SUPPLIER, supplierNameString);
 
@@ -483,15 +500,15 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
 
             // Extract out the value from the Cursor for the given column index
             String productName = cursor.getString(productNameColumnIndex);
-            int productPrice = cursor.getInt(productPriceColumnIndex);
+            Double productPrice = cursor.getDouble(productPriceColumnIndex);
             int productQuantity = cursor.getInt(productQuantityColumnIndex);
             byte[] productImage = cursor.getBlob(productImageColumnIndex);
             String productSupplier = cursor.getString(productSupplierColumnIndex);
 
             // Update the views on the screen with the values from the database
             mProductName.setText(productName);
-            mProductPrice.setText(productPrice);
-            mProductQuantity.setText(productQuantity);
+            mProductPrice.setText(productPrice.toString());
+            mProductQuantity.setText(String.valueOf(productQuantity));
 
             ByteArrayInputStream imageStream = new ByteArrayInputStream(productImage);
             Bitmap image= BitmapFactory.decodeStream(imageStream);
