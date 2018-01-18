@@ -40,7 +40,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigDecimal;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -140,22 +139,22 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
 
         Button btnMinus = (Button) findViewById(R.id.btn_product_minus);
         Button btnPlus = (Button) findViewById(R.id.btn_product_plus);
-        mProductQuantity.setText("0");
-        mProductPrice.setText("0.0");
 
         btnMinus.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                int value = Integer.parseInt(mProductQuantity.getText().toString());
+                String valueString = mProductQuantity.getText().toString();
+                int value = valueString.isEmpty() ? 0 : Integer.parseInt(valueString);
                 if (value >= 1)
-                    mProductQuantity.setText(String.valueOf(value-1));
+                    mProductQuantity.setText(value >= 1 ? String.valueOf(value-1) : "0");
             }
         });
 
         btnPlus.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                int value = Integer.parseInt(mProductQuantity.getText().toString());
+                String valueString = mProductQuantity.getText().toString();
+                int value = valueString.isEmpty() ? 0 : Integer.parseInt(valueString);
                 mProductQuantity.setText(String.valueOf(value+1));
             }
         });
@@ -179,8 +178,10 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         super.onPrepareOptionsMenu(menu);
         // If this is a new product, hide the "Delete" menu item.
         if (mCurrentProductUri == null) {
-            MenuItem menuItem = menu.findItem(R.id.action_delete);
-            menuItem.setVisible(false);
+            MenuItem menuItemDelete = menu.findItem(R.id.action_delete);
+            menuItemDelete.setVisible(false);
+            MenuItem menuItemBuy = menu.findItem(R.id.action_buy);
+            menuItemBuy.setVisible(false);
         }
         return true;
     }
@@ -200,9 +201,14 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
             // Respond to a click on the "Save" menu option
             case R.id.action_save:
                 // Save product to database
-                saveProduct();
-                // Exit activity
-                finish();
+                if (saveProduct()) {
+                    // Exit activity
+                    finish();
+                }
+                return true;
+            // Respond to a click on the "Save" menu option
+            case R.id.action_buy:
+
                 return true;
             // Respond to a click on the "Delete" menu option
             case R.id.action_delete:
@@ -376,31 +382,18 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
     /**
      * Get user input from editor and save product into database.
      */
-    private void saveProduct() {
-        // Read from input fields
-        // Use trim to eliminate leading or trailing white space
+    private boolean saveProduct() {
         String productNameString = mProductName.getText().toString().trim();
 
-        Double productPriceDouble;
         String priceString = mProductPrice.getText().toString().trim();
-        if (priceString.isEmpty()) {
-            productPriceDouble = 0.0;
-        } else {
-            productPriceDouble = Double.valueOf(priceString);
-        }
+        Double productPriceDouble = priceString.isEmpty() ? 0.0 : Double.valueOf(priceString);
 
-        int productQuantityInt;
         String quantityString = mProductQuantity.getText().toString().trim();
-        if (quantityString.isEmpty()) {
-            productQuantityInt = 0;
-        } else {
-            productQuantityInt = Integer.parseInt(quantityString);
-        }
+        int productQuantityInt = quantityString.isEmpty() ? 0 : Integer.parseInt(quantityString);
 
         String supplierNameString = mSupplierName.getText().toString().trim();
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        //Bitmap bitmap = ((BitmapDrawable)getResources().getDrawable(R.drawable.common)).getBitmap();
         Bitmap bitmap = ((BitmapDrawable)mProductImage.getDrawable()).getBitmap();
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
         byte[] image = baos.toByteArray();
@@ -412,7 +405,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
                 productQuantityInt == 0 && TextUtils.isEmpty(supplierNameString)) {
             // Since no fields were modified, we can return early without creating a new product.
             // No need to create ContentValues and no need to do any ContentProvider operations.
-            return;
+            return true;
         }
 
         // Create a ContentValues object where column names are the keys,
@@ -424,39 +417,45 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         values.put(ProductEntry.COLUMN_PRODUCT_IMAGE, image);
         values.put(ProductEntry.COLUMN_PRODUCT_SUPPLIER, supplierNameString);
 
-        // Determine if this is a new or existing product by checking if mCurrentProductUri is null or not
-        if (mCurrentProductUri == null) {
-            // This is a NEW product, so insert a new product into the provider,
-            // returning the content URI for the new product.
-            Uri newUri = getContentResolver().insert(ProductEntry.CONTENT_URI, values);
+        try {
+            // Determine if this is a new or existing product by checking if mCurrentProductUri is null or not
+            if (mCurrentProductUri == null) {
+                // This is a NEW product, so insert a new product into the provider,
+                // returning the content URI for the new product.
+                Uri newUri = getContentResolver().insert(ProductEntry.CONTENT_URI, values);
 
-            // Show a toast message depending on whether or not the insertion was successful.
-            if (newUri == null) {
-                // If the new content URI is null, then there was an error with insertion.
-                Toast.makeText(this, getString(R.string.editor_insert_product_failed),
-                        Toast.LENGTH_SHORT).show();
+                // Show a toast message depending on whether or not the insertion was successful.
+                if (newUri == null) {
+                    // If the new content URI is null, then there was an error with insertion.
+                    Toast.makeText(this, getString(R.string.editor_insert_product_failed),
+                            Toast.LENGTH_SHORT).show();
+                } else {
+                    // Otherwise, the insertion was successful and we can display a toast.
+                    Toast.makeText(this, getString(R.string.editor_insert_product_successful),
+                            Toast.LENGTH_SHORT).show();
+                }
             } else {
-                // Otherwise, the insertion was successful and we can display a toast.
-                Toast.makeText(this, getString(R.string.editor_insert_product_successful),
-                        Toast.LENGTH_SHORT).show();
-            }
-        } else {
-            // Otherwise this is an EXISTING product, so update the product with content URI: mCurrentProductUri
-            // and pass in the new ContentValues. Pass in null for the selection and selection args
-            // because mCurrentProductUri will already identify the correct row in the database that
-            // we want to modify.
-            int rowsAffected = getContentResolver().update(mCurrentProductUri, values, null, null);
+                // Otherwise this is an EXISTING product, so update the product with content URI: mCurrentProductUri
+                // and pass in the new ContentValues. Pass in null for the selection and selection args
+                // because mCurrentProductUri will already identify the correct row in the database that
+                // we want to modify.
+                int rowsAffected = getContentResolver().update(mCurrentProductUri, values, null, null);
 
-            // Show a toast message depending on whether or not the update was successful.
-            if (rowsAffected == 0) {
-                // If no rows were affected, then there was an error with the update.
-                Toast.makeText(this, getString(R.string.editor_update_product_failed),
-                        Toast.LENGTH_SHORT).show();
-            } else {
-                // Otherwise, the update was successful and we can display a toast.
-                Toast.makeText(this, getString(R.string.editor_update_product_successful),
-                        Toast.LENGTH_SHORT).show();
+                // Show a toast message depending on whether or not the update was successful.
+                if (rowsAffected == 0) {
+                    // If no rows were affected, then there was an error with the update.
+                    Toast.makeText(this, getString(R.string.editor_update_product_failed),
+                            Toast.LENGTH_SHORT).show();
+                } else {
+                    // Otherwise, the update was successful and we can display a toast.
+                    Toast.makeText(this, getString(R.string.editor_update_product_successful),
+                            Toast.LENGTH_SHORT).show();
+                }
             }
+            return true;
+        } catch (IllegalArgumentException e) {
+            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
+            return false;
         }
     }
 

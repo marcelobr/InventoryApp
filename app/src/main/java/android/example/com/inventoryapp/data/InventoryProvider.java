@@ -109,13 +109,13 @@ public class InventoryProvider extends ContentProvider {
     private Uri insertProduct(Uri uri, ContentValues values) {
         // Check that the name is not null
         String name = values.getAsString(ProductEntry.COLUMN_PRODUCT_NAME);
-        if (name == null) {
+        if (name == null || name.isEmpty()) {
             throw new IllegalArgumentException("Product requires a name");
         }
 
         // If the price is provided, check that it's greater than or equal to 0
         Double price = values.getAsDouble(ProductEntry.COLUMN_PRODUCT_PRICE);
-        if (price == null || price < 0.0) {
+        if (price == null || price <= 0.0) {
             throw new IllegalArgumentException("Product requires valid price");
         }
 
@@ -133,7 +133,7 @@ public class InventoryProvider extends ContentProvider {
 
         // Check that the supplier is not null
         String supplier = values.getAsString(ProductEntry.COLUMN_PRODUCT_SUPPLIER);
-        if (supplier == null) {
+        if (supplier == null || supplier.isEmpty()) {
             throw new IllegalArgumentException("Product requires a supplier");
         }
 
