@@ -60,9 +60,6 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
      */
     private Uri mCurrentProductUri;
 
-    /**
-     * EditText field to enter the product's name
-     */
     private EditText mProductName;
 
     private EditText mProductPrice;
@@ -72,6 +69,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
     private ImageView mProductImage;
 
     private EditText mSupplierName;
+
+    private EditText mSupplierPhone;
 
     /**
      * Boolean flag that keeps track of whether the product has been edited (true) or not (false)
@@ -127,6 +126,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         mProductQuantity = (EditText) findViewById(R.id.edit_product_quantity);
         mProductImage = (ImageView) findViewById(R.id.iv_product_image);
         mSupplierName = (EditText) findViewById(R.id.edit_supplier_name);
+        mSupplierPhone = (EditText) findViewById(R.id.edit_supplier_phone);
 
         Button btnSelectImage = (Button) findViewById(R.id.ib_product_select);
 
@@ -143,19 +143,14 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         btnMinus.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String valueString = mProductQuantity.getText().toString();
-                int value = valueString.isEmpty() ? 0 : Integer.parseInt(valueString);
-                if (value >= 1)
-                    mProductQuantity.setText(value >= 1 ? String.valueOf(value-1) : "0");
+                subtractQuantity();
             }
         });
 
         btnPlus.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                String valueString = mProductQuantity.getText().toString();
-                int value = valueString.isEmpty() ? 0 : Integer.parseInt(valueString);
-                mProductQuantity.setText(String.valueOf(value+1));
+                addQuantity();
             }
         });
 
@@ -167,6 +162,20 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         mProductQuantity.setOnTouchListener(mTouchListener);
         mProductImage.setOnTouchListener(mTouchListener);
         mSupplierName.setOnTouchListener(mTouchListener);
+        mSupplierPhone.setOnTouchListener(mTouchListener);
+    }
+
+    private void subtractQuantity() {
+        String valueString = mProductQuantity.getText().toString();
+        int value = valueString.isEmpty() ? 0 : Integer.parseInt(valueString);
+        if (value >= 1)
+            mProductQuantity.setText(value >= 1 ? String.valueOf(value-1) : "0");
+    }
+
+    private void addQuantity() {
+        String valueString = mProductQuantity.getText().toString();
+        int value = valueString.isEmpty() ? 0 : Integer.parseInt(valueString);
+        mProductQuantity.setText(String.valueOf(value+1));
     }
 
     /**
@@ -178,6 +187,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         super.onPrepareOptionsMenu(menu);
         // If this is a new product, hide the "Delete" menu item.
         if (mCurrentProductUri == null) {
+            MenuItem menuItemSale = menu.findItem(R.id.action_sale);
+            menuItemSale.setVisible(false);
             MenuItem menuItemDelete = menu.findItem(R.id.action_delete);
             menuItemDelete.setVisible(false);
             MenuItem menuItemBuy = menu.findItem(R.id.action_buy);
@@ -206,9 +217,13 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
                     finish();
                 }
                 return true;
-            // Respond to a click on the "Save" menu option
+            // Respond to a click on the "Register a Sale" menu option
+            case R.id.action_sale:
+                subtractQuantity();
+                return true;
+            // Respond to a click on the "Order More" menu option
             case R.id.action_buy:
-
+                redirectPhoneApp(mSupplierPhone.getText().toString().trim());
                 return true;
             // Respond to a click on the "Delete" menu option
             case R.id.action_delete:
@@ -243,12 +258,19 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         return super.onOptionsItemSelected(item);
     }
 
+    private void redirectPhoneApp(String phoneNumber){
+        if (!phoneNumber.isEmpty()) {
+            Intent intent = new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phoneNumber, null));
+            startActivity(intent);
+        }
+    }
+
     /**
      * This method is called when the back button is pressed.
      */
     @Override
     public void onBackPressed() {
-        // If the pet hasn't changed, continue with handling back button press
+        // If the product hasn't changed, continue with handling back button press
         if (!mProductHasChanged) {
             super.onBackPressed();
             return;
@@ -393,6 +415,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
 
         String supplierNameString = mSupplierName.getText().toString().trim();
 
+        String supplierPhoneString = mSupplierPhone.getText().toString().trim();
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         Bitmap bitmap = ((BitmapDrawable)mProductImage.getDrawable()).getBitmap();
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
@@ -402,7 +426,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         // and check if all the fields in the editor are blank
         if (mCurrentProductUri == null &&
                 TextUtils.isEmpty(productNameString) && productPriceDouble == 0.0 &&
-                productQuantityInt == 0 && TextUtils.isEmpty(supplierNameString)) {
+                productQuantityInt == 0 && TextUtils.isEmpty(supplierNameString) && TextUtils.isEmpty(supplierPhoneString)) {
             // Since no fields were modified, we can return early without creating a new product.
             // No need to create ContentValues and no need to do any ContentProvider operations.
             return true;
@@ -415,7 +439,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         values.put(ProductEntry.COLUMN_PRODUCT_PRICE, productPriceDouble);
         values.put(ProductEntry.COLUMN_PRODUCT_QUANTITY, productQuantityInt);
         values.put(ProductEntry.COLUMN_PRODUCT_IMAGE, image);
-        values.put(ProductEntry.COLUMN_PRODUCT_SUPPLIER, supplierNameString);
+        values.put(ProductEntry.COLUMN_PRODUCT_SUPPLIER_NAME, supplierNameString);
+        values.put(ProductEntry.COLUMN_PRODUCT_SUPPLIER_PHONE, supplierPhoneString);
 
         try {
             // Determine if this is a new or existing product by checking if mCurrentProductUri is null or not
@@ -469,11 +494,12 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
                 ProductEntry.COLUMN_PRODUCT_PRICE,
                 ProductEntry.COLUMN_PRODUCT_QUANTITY,
                 ProductEntry.COLUMN_PRODUCT_IMAGE,
-                ProductEntry.COLUMN_PRODUCT_SUPPLIER};
+                ProductEntry.COLUMN_PRODUCT_SUPPLIER_NAME,
+                ProductEntry.COLUMN_PRODUCT_SUPPLIER_PHONE};
 
         // This loader will execute the ContentProvider's query method on a background thread
         return new CursorLoader(this,   // Parent activity context
-                mCurrentProductUri,         // Query the content URI for the current pet
+                mCurrentProductUri,         // Query the content URI for the current product
                 projection,             // Columns to include in the resulting Cursor
                 null,                   // No selection clause
                 null,                   // No selection arguments
@@ -495,14 +521,16 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
             int productPriceColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_PRICE);
             int productQuantityColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_QUANTITY);
             int productImageColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_IMAGE);
-            int productSupplierColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_SUPPLIER);
+            int productSupplierNameColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_SUPPLIER_NAME);
+            int productSupplierPhoneColumnIndex = cursor.getColumnIndex(ProductEntry.COLUMN_PRODUCT_SUPPLIER_PHONE);
 
             // Extract out the value from the Cursor for the given column index
             String productName = cursor.getString(productNameColumnIndex);
             Double productPrice = cursor.getDouble(productPriceColumnIndex);
             int productQuantity = cursor.getInt(productQuantityColumnIndex);
             byte[] productImage = cursor.getBlob(productImageColumnIndex);
-            String productSupplier = cursor.getString(productSupplierColumnIndex);
+            String productSupplierName = cursor.getString(productSupplierNameColumnIndex);
+            String productSupplierPhone = cursor.getString(productSupplierPhoneColumnIndex);
 
             // Update the views on the screen with the values from the database
             mProductName.setText(productName);
@@ -512,7 +540,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
             ByteArrayInputStream imageStream = new ByteArrayInputStream(productImage);
             Bitmap image= BitmapFactory.decodeStream(imageStream);
             mProductImage.setImageBitmap(image);
-            mSupplierName.setText(productSupplier);
+            mSupplierName.setText(productSupplierName);
+            mSupplierPhone.setText(productSupplierPhone);
         }
     }
 
@@ -524,6 +553,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         mProductQuantity.setText("0");
         mProductImage.setImageResource(R.drawable.placeholder_thumbnail);
         mSupplierName.setText("");
+        mSupplierPhone.setText("");
     }
 
     /**
@@ -543,7 +573,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         builder.setNegativeButton(R.string.keep_editing, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
                 // User clicked the "Keep editing" button, so dismiss the dialog
-                // and continue editing the pet.
+                // and continue editing the product.
                 if (dialog != null) {
                     dialog.dismiss();
                 }
@@ -565,14 +595,14 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         builder.setMessage(R.string.delete_dialog_msg);
         builder.setPositiveButton(R.string.delete, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
-                // User clicked the "Delete" button, so delete the pet.
-                deletePet();
+                // User clicked the "Delete" button, so delete the product.
+                deleteProduct();
             }
         });
         builder.setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
             public void onClick(DialogInterface dialog, int id) {
                 // User clicked the "Cancel" button, so dismiss the dialog
-                // and continue editing the pet.
+                // and continue editing the product.
                 if (dialog != null) {
                     dialog.dismiss();
                 }
@@ -585,9 +615,9 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
     }
 
     /**
-     * Perform the deletion of the pet in the database.
+     * Perform the deletion of the product in the database.
      */
-    private void deletePet() {
+    private void deleteProduct() {
         // Only perform the delete if this is an existing product.
         if (mCurrentProductUri != null) {
             // Call the ContentResolver to delete the product at the given content URI.

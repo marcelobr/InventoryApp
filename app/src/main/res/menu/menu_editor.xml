@@ -17,6 +17,11 @@
     tools:context=".EditorActivity">
 
     <item
+        android:id="@+id/action_sale"
+        android:title="@string/action_sale"
+        app:showAsAction="always" />
+
+    <item
         android:id="@+id/action_save"
         android:title="@string/action_save"
         android:icon="@drawable/ic_done"

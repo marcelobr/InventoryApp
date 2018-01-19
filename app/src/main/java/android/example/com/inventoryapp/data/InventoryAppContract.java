@@ -65,18 +65,26 @@ public class InventoryAppContract {
         public final static String COLUMN_PRODUCT_QUANTITY ="quantity";
 
         /**
-         * Supplier of the product.
-         *
-         * Type: TEXT
-         */
-        public final static String COLUMN_PRODUCT_SUPPLIER ="supplier";
-
-        /**
          * Photo of the product.
          *
          * Type: BLOB
          */
         public final static String COLUMN_PRODUCT_IMAGE ="image";
+
+        /**
+         * Supplier of the product.
+         *
+         * Type: TEXT
+         */
+        public final static String COLUMN_PRODUCT_SUPPLIER_NAME ="supplier";
+
+        /**
+         * Supplier's Phone.
+         *
+         * Type: TEXT
+         */
+        public final static String COLUMN_PRODUCT_SUPPLIER_PHONE ="phone";
+
     }
 
 

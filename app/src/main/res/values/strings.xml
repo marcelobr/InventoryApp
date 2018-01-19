@@ -1,6 +1,5 @@
 <resources>
     <string name="app_name">Inventory App</string>
-    <string name="action_settings">Settings</string>
 
     <!-- Title text for the empty view [CHAR LIMIT=50] -->
     <string name="empty_view_title_text">No products here...</string>
@@ -30,7 +29,10 @@
     <string name="hint_product_quantity">Quantity</string>
 
     <!-- Text hint for supplier name field in the editor [CHAR LIMIT=30] -->
-    <string name="hint_supplier_name">Supplier</string>
+    <string name="hint_supplier_name">Name</string>
+
+    <!-- Text hint for supplier phone field in the editor [CHAR LIMIT=NONE] -->
+    <string name="hint_supplier_phone">Phone</string>
 
     <!-- Toast message in editor when new product has been successfully inserted [CHAR LIMIT=NONE] -->
     <string name="editor_insert_product_successful">Product saved</string>
@@ -48,7 +50,10 @@
     <string name="action_save">Save</string>
 
     <!-- Label for editor overflow menu option that buy the current product [CHAR LIMIT=20] -->
-    <string name="action_buy">Buy from Supplier</string>
+    <string name="action_buy">Order More</string>
+
+    <!-- Label for editor overflow menu option that register a sale for the current product [CHAR LIMIT=20] -->
+    <string name="action_sale">Register a Sale</string>
 
     <!-- Label for editor overflow menu option that deletes the current product [CHAR LIMIT=20] -->
     <string name="action_delete">Delete</string>
@@ -76,5 +81,11 @@
 
     <!-- Toast message in editor when current product has failed to be deleted [CHAR LIMIT=NONE] -->
     <string name="editor_delete_product_failed">Error with deleting product</string>
+
+    <string name="text_minus_button">-</string>
+
+    <string name="text_plus_button">+</string>
+
+    <string name="text_select_image_button">Select Image</string>
 
 </resources>

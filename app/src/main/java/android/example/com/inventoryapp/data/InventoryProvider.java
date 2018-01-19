@@ -131,18 +131,12 @@ public class InventoryProvider extends ContentProvider {
             throw new IllegalArgumentException("Product requires valid image");
         }
 
-        // Check that the supplier is not null
-        String supplier = values.getAsString(ProductEntry.COLUMN_PRODUCT_SUPPLIER);
-        if (supplier == null || supplier.isEmpty()) {
-            throw new IllegalArgumentException("Product requires a supplier");
-        }
-
         // No need to check the photo, any value is valid (including null).
 
         // Get writeable database
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
-        // Insert the new pet with the given values
+        // Insert the new product with the given values
         long id = database.insert(ProductEntry.TABLE_NAME, null, values);
         // If the ID is -1, then the insertion failed. Log an error and return null.
         if (id == -1) {
@@ -150,7 +144,7 @@ public class InventoryProvider extends ContentProvider {
             return null;
         }
 
-        // Notify all listeners that the data has changed for the pet content URI
+        // Notify all listeners that the data has changed for the product content URI
         getContext().getContentResolver().notifyChange(uri, null);
 
         // Return the new URI with the ID (of the newly inserted row) appended at the end
@@ -198,7 +192,7 @@ public class InventoryProvider extends ContentProvider {
             case PRODUCTS:
                 return updateProduct(uri, contentValues, selection, selectionArgs);
             case PRODUCT_ID:
-                // For the PET_ID code, extract out the ID from the URI,
+                // For the PRODUCT_ID code, extract out the ID from the URI,
                 // so we know which row to update. Selection will be "_id=?" and selection
                 // arguments will be a String array containing the actual ID.
                 selection = ProductEntry._ID + "=?";
@@ -229,7 +223,7 @@ public class InventoryProvider extends ContentProvider {
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_PRICE)) {
             Double price = values.getAsDouble(ProductEntry.COLUMN_PRODUCT_PRICE);
             if (price == null || price < 0.0) {
-                throw new IllegalArgumentException("Pet requires valid price");
+                throw new IllegalArgumentException("Product requires valid price");
             }
         }
 
@@ -238,7 +232,7 @@ public class InventoryProvider extends ContentProvider {
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_QUANTITY)) {
             Integer quantity = values.getAsInteger(ProductEntry.COLUMN_PRODUCT_QUANTITY);
             if (quantity == null || quantity < 0) {
-                throw new IllegalArgumentException("Pet requires valid quantity");
+                throw new IllegalArgumentException("Product requires valid quantity");
             }
         }
 
@@ -247,16 +241,7 @@ public class InventoryProvider extends ContentProvider {
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_IMAGE)) {
             byte[] image = values.getAsByteArray(ProductEntry.COLUMN_PRODUCT_IMAGE);
             if (image == null) {
-                throw new IllegalArgumentException("Pet requires valid image");
-            }
-        }
-
-        // If the {@link ProductEntry#COLUMN_PRODUCT_SUPPLIER} key is present,
-        // check that the supplier value is not null.
-        if (values.containsKey(ProductEntry.COLUMN_PRODUCT_SUPPLIER)) {
-            String supplier = values.getAsString(ProductEntry.COLUMN_PRODUCT_SUPPLIER);
-            if (supplier == null) {
-                throw new IllegalArgumentException("Product requires a supplier");
+                throw new IllegalArgumentException("Product requires valid image");
             }
         }
 
