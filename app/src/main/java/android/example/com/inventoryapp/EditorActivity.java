@@ -1,6 +1,7 @@
 package android.example.com.inventoryapp;
 
 import android.Manifest;
+import android.app.Activity;
 import android.app.AlertDialog;
 import android.app.LoaderManager;
 import android.content.ContentValues;
@@ -26,6 +27,7 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -212,6 +214,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
             // Respond to a click on the "Save" menu option
             case R.id.action_save:
                 // Save product to database
+                hideSoftKeyboard(this);
                 if (saveProduct()) {
                     // Exit activity
                     finish();
@@ -612,6 +615,14 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         // Create and show the AlertDialog
         AlertDialog alertDialog = builder.create();
         alertDialog.show();
+    }
+
+    public static void hideSoftKeyboard(Activity activity) {
+        InputMethodManager inputMethodManager =
+                (InputMethodManager) activity.getSystemService(
+                        Activity.INPUT_METHOD_SERVICE);
+        inputMethodManager.hideSoftInputFromWindow(
+                activity.getCurrentFocus().getWindowToken(), 0);
     }
 
     /**
