@@ -88,4 +88,14 @@
 
     <string name="text_select_image_button">Select Image</string>
 
+    <string name="currency_symbol">$</string>
+
+    <string name="no_supplier_phone">Supplier Phone not registered</string>
+
+    <string name="camera_permission_error">"Camera Permission error"</string>
+
+    <string name="camera_permission_granted">"Camera Permission granted"</string>
+
+    <string name="camera_permission_denied">"Camera Permission denied"</string>
+
 </resources>

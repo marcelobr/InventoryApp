@@ -258,6 +258,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         if (!phoneNumber.isEmpty()) {
             Intent intent = new Intent(Intent.ACTION_DIAL, Uri.fromParts("tel", phoneNumber, null));
             startActivity(intent);
+        } else {
+            Toast.makeText(this, R.string.no_supplier_phone, Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -316,9 +318,8 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
             } else
                 requestPermissions(new String[]{Manifest.permission.CAMERA},
                         MY_CAMERA_REQUEST_CODE);
-                //Toast.makeText(this, "Camera Permission error", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
-            Toast.makeText(this, "Camera Permission error", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, R.string.camera_permission_error, Toast.LENGTH_SHORT).show();
             e.printStackTrace();
         }
     }
@@ -329,9 +330,9 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
 
         if (requestCode == MY_CAMERA_REQUEST_CODE) {
             if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "camera permission granted", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.camera_permission_granted, Toast.LENGTH_LONG).show();
             } else {
-                Toast.makeText(this, "camera permission denied", Toast.LENGTH_LONG).show();
+                Toast.makeText(this, R.string.camera_permission_denied, Toast.LENGTH_LONG).show();
             }
         }
     }
