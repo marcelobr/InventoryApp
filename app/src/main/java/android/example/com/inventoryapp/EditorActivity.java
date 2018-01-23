@@ -25,7 +25,6 @@ import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.text.format.DateFormat;
-import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.MotionEvent;
@@ -44,7 +43,6 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -292,27 +290,30 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         showUnsavedChangesDialog(discardButtonClickListener);
     }
 
-    // Select image from camera and gallery
+    // Select image from camera or gallery
     private void selectImage() {
         try {
             PackageManager pm = getPackageManager();
             int hasPerm = pm.checkPermission(Manifest.permission.CAMERA, getPackageName());
             if (hasPerm == PackageManager.PERMISSION_GRANTED) {
-                final CharSequence[] options = {"Take Photo", "Choose From Gallery","Cancel"};
+                final String takePhoto = getString(R.string.dialog_take_photo);
+                final String chooseGallery = getString(R.string.dialog_choose_gallery);
+                final String cancel = getString(R.string.dialog_cancel);
+                final CharSequence[] options = {takePhoto, chooseGallery, cancel};
                 android.support.v7.app.AlertDialog.Builder builder = new android.support.v7.app.AlertDialog.Builder(this);
-                builder.setTitle("Select Option");
+                builder.setTitle(R.string.dialog_select_option);
                 builder.setItems(options, new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int item) {
-                        if (options[item].equals("Take Photo")) {
+                        if (options[item].equals(takePhoto)) {
                             dialog.dismiss();
                             Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
                             startActivityForResult(intent, PICK_IMAGE_CAMERA);
-                        } else if (options[item].equals("Choose From Gallery")) {
+                        } else if (options[item].equals(chooseGallery)) {
                             dialog.dismiss();
                             Intent pickPhoto = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
                             startActivityForResult(pickPhoto, PICK_IMAGE_GALLERY);
-                        } else if (options[item].equals("Cancel")) {
+                        } else if (options[item].equals(cancel)) {
                             dialog.dismiss();
                         }
                     }
@@ -343,73 +344,58 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-
-        InputStream inputStreamImg = null;
-        Bitmap bitmap;
-        File destination = null;
-        String imgPath = null;
-        if (requestCode == PICK_IMAGE_CAMERA) {
-            try {
-                bitmap = (Bitmap) data.getExtras().get("data");
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 50, bytes);
-
-                Log.e("Activity", "Pick from Camera::>>> ");
-
-                String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-                destination = new File(Environment.getExternalStorageDirectory() + "/" +
-                        getString(R.string.app_name), "IMG_" + timeStamp + ".jpg");
-                FileOutputStream fo;
+        if (data != null) {
+            Bitmap bitmap;
+            File destination;
+            String imgPath;
+            if (requestCode == PICK_IMAGE_CAMERA) {
                 try {
-                    destination.createNewFile();
-                    fo = new FileOutputStream(destination);
-                    fo.write(bytes.toByteArray());
-                    fo.close();
-                } catch (FileNotFoundException e) {
-                    e.printStackTrace();
-                } catch (IOException e) {
+                    bitmap = (Bitmap) data.getExtras().get("data");
+                    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 50, bytes);
+                    String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+                    destination = new File(Environment.getExternalStorageDirectory() + "/" +
+                            getString(R.string.app_name), "IMG_" + timeStamp + ".jpg");
+                    FileOutputStream fo;
+                    try {
+                        destination.createNewFile();
+                        fo = new FileOutputStream(destination);
+                        fo.write(bytes.toByteArray());
+                        fo.close();
+                    } catch (FileNotFoundException e) {
+                        e.printStackTrace();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+
+                    Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, 500, 500,
+                            false);
+                    Bitmap thumbnail_r = imageOrientationValidator(resizedBitmap,
+                            destination.getAbsolutePath());
+                    mProductImage.setImageBitmap(thumbnail_r);
+                } catch (Exception e) {
                     e.printStackTrace();
                 }
-
-                Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, 500, 500,
-                        false);
-                // rotated
-                Bitmap thumbnail_r = imageOreintationValidator(resizedBitmap,
-                        destination.getAbsolutePath());
-
-                imgPath = destination.getAbsolutePath();
-                mProductImage.setImageBitmap(thumbnail_r);
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        } else if (requestCode == PICK_IMAGE_GALLERY) {
-            Uri selectedImage = data.getData();
-            try {
-                bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImage);
-                ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-                bitmap.compress(Bitmap.CompressFormat.JPEG, 50, bytes);
-                Log.e("Activity", "Pick from Gallery::>>> ");
-
-                imgPath = getRealPathFromURI(selectedImage);
-                destination = new File(imgPath.toString());
-
-                Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, 500, 500,
-                        false);
-                // rotated
-                Bitmap thumbnail_r = imageOreintationValidator(resizedBitmap,
-                        imgPath);
-
-                mProductImage.setImageBitmap(thumbnail_r);
-
-            } catch (Exception e) {
-                e.printStackTrace();
+            } else if (requestCode == PICK_IMAGE_GALLERY) {
+                Uri selectedImage = data.getData();
+                try {
+                    bitmap = MediaStore.Images.Media.getBitmap(this.getContentResolver(), selectedImage);
+                    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 50, bytes);
+                    imgPath = getRealPathFromURI(selectedImage);
+                    Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, 500, 500,
+                            false);
+                    Bitmap thumbnail_r = imageOrientationValidator(resizedBitmap,
+                            imgPath);
+                    mProductImage.setImageBitmap(thumbnail_r);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
         }
     }
 
-    private Bitmap imageOreintationValidator(Bitmap bitmap, String path) {
-
+    private Bitmap imageOrientationValidator(Bitmap bitmap, String path) {
         ExifInterface ei;
         try {
             ei = new ExifInterface(path);
@@ -435,7 +421,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
 
     private Bitmap rotateImage(Bitmap source, float angle) {
 
-        Bitmap bitmap = null;
+        Bitmap bitmap;
         Matrix matrix = new Matrix();
         matrix.postRotate(angle);
         try {
@@ -457,7 +443,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         return bitmap;
     }
 
-    public String getRealPathFromURI(Uri contentUri) {
+    private String getRealPathFromURI(Uri contentUri) {
         String[] proj = {MediaStore.Audio.Media.DATA};
         Cursor cursor = managedQuery(contentUri, proj, null, null, null);
         int column_index = cursor.getColumnIndexOrThrow(MediaStore.Audio.Media.DATA);
@@ -678,7 +664,7 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
         alertDialog.show();
     }
 
-    public static void hideSoftKeyboard(Activity activity) {
+    private static void hideSoftKeyboard(Activity activity) {
         InputMethodManager inputMethodManager =
                 (InputMethodManager) activity.getSystemService(
                         Activity.INPUT_METHOD_SERVICE);

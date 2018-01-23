@@ -133,7 +133,7 @@ public class InventoryProvider extends ContentProvider {
 
         // No need to check the photo, any value is valid (including null).
 
-        // Get writeable database
+        // Get writable database
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
         // Insert the new product with the given values
@@ -213,7 +213,7 @@ public class InventoryProvider extends ContentProvider {
         // check that the name value is not null.
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_NAME)) {
             String name = values.getAsString(ProductEntry.COLUMN_PRODUCT_NAME);
-            if (name == null) {
+            if (name == null || name.isEmpty()) {
                 throw new IllegalArgumentException("Product requires a name");
             }
         }
@@ -222,7 +222,7 @@ public class InventoryProvider extends ContentProvider {
         // check that the price value is valid.
         if (values.containsKey(ProductEntry.COLUMN_PRODUCT_PRICE)) {
             Double price = values.getAsDouble(ProductEntry.COLUMN_PRODUCT_PRICE);
-            if (price == null || price < 0.0) {
+            if (price == null || price <= 0.0) {
                 throw new IllegalArgumentException("Product requires valid price");
             }
         }
@@ -252,7 +252,7 @@ public class InventoryProvider extends ContentProvider {
             return 0;
         }
 
-        // Otherwise, get writeable database to update the data
+        // Otherwise, get writable database to update the data
         SQLiteDatabase database = mDbHelper.getWritableDatabase();
 
         // Perform the update on the database and get the number of rows affected
