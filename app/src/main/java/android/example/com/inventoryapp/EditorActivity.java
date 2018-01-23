@@ -13,7 +13,9 @@ import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -22,6 +24,7 @@ import android.support.v4.app.NavUtils;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.text.format.DateFormat;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -368,8 +371,14 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
                     e.printStackTrace();
                 }
 
+                Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, 500, 500,
+                        false);
+                // rotated
+                Bitmap thumbnail_r = imageOreintationValidator(resizedBitmap,
+                        destination.getAbsolutePath());
+
                 imgPath = destination.getAbsolutePath();
-                mProductImage.setImageBitmap(bitmap);
+                mProductImage.setImageBitmap(thumbnail_r);
 
             } catch (Exception e) {
                 e.printStackTrace();
@@ -384,12 +393,68 @@ public class EditorActivity extends AppCompatActivity implements LoaderManager.L
 
                 imgPath = getRealPathFromURI(selectedImage);
                 destination = new File(imgPath.toString());
-                mProductImage.setImageBitmap(bitmap);
+
+                Bitmap resizedBitmap = Bitmap.createScaledBitmap(bitmap, 500, 500,
+                        false);
+                // rotated
+                Bitmap thumbnail_r = imageOreintationValidator(resizedBitmap,
+                        imgPath);
+
+                mProductImage.setImageBitmap(thumbnail_r);
 
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+    }
+
+    private Bitmap imageOreintationValidator(Bitmap bitmap, String path) {
+
+        ExifInterface ei;
+        try {
+            ei = new ExifInterface(path);
+            int orientation = ei.getAttributeInt(ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL);
+            switch (orientation) {
+                case ExifInterface.ORIENTATION_ROTATE_90:
+                    bitmap = rotateImage(bitmap, 90);
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_180:
+                    bitmap = rotateImage(bitmap, 180);
+                    break;
+                case ExifInterface.ORIENTATION_ROTATE_270:
+                    bitmap = rotateImage(bitmap, 270);
+                    break;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return bitmap;
+    }
+
+    private Bitmap rotateImage(Bitmap source, float angle) {
+
+        Bitmap bitmap = null;
+        Matrix matrix = new Matrix();
+        matrix.postRotate(angle);
+        try {
+            bitmap = Bitmap.createBitmap(source, 0, 0, source.getWidth(),
+                    source.getHeight(), matrix, true);
+        } catch (OutOfMemoryError err) {
+            source.recycle();
+            Date d = new Date();
+            CharSequence s = DateFormat
+                    .format("MM-dd-yy-hh-mm-ss", d.getTime());
+            String fullPath = Environment.getExternalStorageDirectory()
+                    + "/RYB_pic/" + s.toString() + ".jpg";
+            if ((fullPath != null) && (new File(fullPath).exists())) {
+                new File(fullPath).delete();
+            }
+            bitmap = null;
+            err.printStackTrace();
+        }
+        return bitmap;
     }
 
     public String getRealPathFromURI(Uri contentUri) {
